@@ -24,7 +24,8 @@ A toy kernel written in C targeting both x86 and x86_64
 - [x] uACPI full mode
 - [x] PS/2 keyboard driver
 - [x] AC97 audio driver
-- [x] Pong 
+- [x] Pong
+- [x] Multilevel Feedback Queue Scheduler
 
 ### Custom libc implementation (bootstrapped)
 - [x] Standard Library - basic stdio, stdlib, string functions
@@ -44,7 +45,6 @@ A toy kernel written in C targeting both x86 and x86_64
 - [ ] User Mode - Ring 3 execution environment
 - [ ] Multiprocessing w/ ACPI infrastructure
 - [ ] Process Management - Task switching and scheduling
-- [ ] Scheduler
 - [ ] VFS - Virtual File System abstraction
 - [ ] IPC Mechanisms - pipes, shared memory, message queues
 - [ ] Network stack - TCP/IP implementation
