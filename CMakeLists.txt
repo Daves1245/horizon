@@ -95,6 +95,7 @@ project(Horizon C ASM ASM_NASM)
 # include subsystem cmakes (./cmake/subsystem.cmake)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include(subsystem)
+include(embed_audio)
 
 enable_language(ASM_NASM)
 
@@ -155,56 +156,6 @@ set(KERNEL_INCLUDE_DIRS
 # Link flags and libraries
 set(KERNEL_LINK_FLAGS -no-pie -z noexecstack)
 
-# convert audio to 16-bit 48kHz stereo raw PCM for AC97
-set(AUDIO_PONG_WALL_SRC ${CMAKE_SOURCE_DIR}/audio/wall.ogg)
-set(AUDIO_PONG_WALL_RAW ${CMAKE_CURRENT_BINARY_DIR}/wall.raw)
-set(AUDIO_PONG_PADDLE_SRC ${CMAKE_SOURCE_DIR}/audio/paddle.ogg)
-set(AUDIO_PONG_PADDLE_RAW ${CMAKE_CURRENT_BINARY_DIR}/paddle.raw)
-set(AUDIO_PONG_SCORE_SRC ${CMAKE_SOURCE_DIR}/audio/score.ogg)
-set(AUDIO_PONG_SCORE_RAW ${CMAKE_CURRENT_BINARY_DIR}/score.raw)
-
-# convert audio to 16-bit 48kHz stereo raw PCM for AC97
-# -f s16le: raw signed 16-bit little-endian PCM
-# -acodec pcm_s16le: 16-bit LE PCM codec
-# -ar 48000: 48kHz sample rate (AC97 standard)
-# -ac 2: stereo
-
-set(AUDIO_PONG_WALL_SRC ${CMAKE_SOURCE_DIR}/audio/wall.ogg)
-set(AUDIO_PONG_WALL_RAW ${CMAKE_CURRENT_BINARY_DIR}/wall.raw)
-set(AUDIO_PONG_PADDLE_SRC ${CMAKE_SOURCE_DIR}/audio/paddle.ogg)
-set(AUDIO_PONG_PADDLE_RAW ${CMAKE_CURRENT_BINARY_DIR}/paddle.raw)
-set(AUDIO_PONG_SCORE_SRC ${CMAKE_SOURCE_DIR}/audio/score.ogg)
-set(AUDIO_PONG_SCORE_RAW ${CMAKE_CURRENT_BINARY_DIR}/score.raw)
-
-# very impotant audio
-set(AUDIO_RICK_SRC ${CMAKE_SOURCE_DIR}/audio/rick.mp3)
-set(AUDIO_RICK_RAW ${CMAKE_CURRENT_BINARY_DIR}/rick.raw)
-
-add_custom_command(
-    OUTPUT ${AUDIO_RICK_RAW}
-    COMMAND ffmpeg -y -i ${AUDIO_RICK_SRC} -f s16le -acodec pcm_s16le -ar 48000 -ac 2 ${AUDIO_RICK_RAW}
-    DEPENDS ${AUDIO_RICK_SRC}
-    COMMENT "Converting rick.mp3 to raw PCM"
-)
-add_custom_command(
-    OUTPUT ${AUDIO_PONG_WALL_RAW}
-    COMMAND ffmpeg -y -i ${AUDIO_PONG_WALL_SRC} -f s16le -acodec pcm_s16le -ar 48000 -ac 2 ${AUDIO_PONG_WALL_RAW}
-    DEPENDS ${AUDIO_PONG_WALL_SRC}
-    COMMENT "Converting wall.ogg to raw PCM"
-)
-add_custom_command(
-    OUTPUT ${AUDIO_PONG_PADDLE_RAW}
-    COMMAND ffmpeg -y -i ${AUDIO_PONG_PADDLE_SRC} -f s16le -acodec pcm_s16le -ar 48000 -ac 2 ${AUDIO_PONG_PADDLE_RAW}
-    DEPENDS ${AUDIO_PONG_PADDLE_SRC}
-    COMMENT "Converting paddle.ogg to raw PCM"
-)
-add_custom_command(
-    OUTPUT ${AUDIO_PONG_SCORE_RAW}
-    COMMAND ffmpeg -y -i ${AUDIO_PONG_SCORE_SRC} -f s16le -acodec pcm_s16le -ar 48000 -ac 2 ${AUDIO_PONG_SCORE_RAW}
-    DEPENDS ${AUDIO_PONG_SCORE_SRC}
-    COMMENT "Converting score.ogg to raw PCM"
-)
-
 # Architecture-specific configuration
 if(ARCH STREQUAL "i386")
     set(KERNEL_ARCH_C_FLAGS -mno-sse -mno-red-zone -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -msoft-float -mno-80387)
@@ -236,38 +187,8 @@ if(ARCH STREQUAL "i386")
         ${ARCHDIR}/boot/crtn.S
     )
 
-    set(I386_WALL_OBJ ${CMAKE_CURRENT_BINARY_DIR}/wall.o)
-    add_custom_command(
-        OUTPUT ${I386_WALL_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy -I binary -O elf32-i386 -B i386
-        --rename-section .data=.sound_wall,alloc,load,readonly,contents
-        ${AUDIO_PONG_WALL_RAW} ${I386_WALL_OBJ}
-        DEPENDS ${AUDIO_PONG_WALL_RAW}
-        COMMENT "Embedding wall.raw (i386)"
-    )
-    add_custom_target(i386_wall_obj DEPENDS ${I386_WALL_OBJ})
-
-    set(I386_PADDLE_OBJ ${CMAKE_CURRENT_BINARY_DIR}/paddle.o)
-    add_custom_command(
-        OUTPUT ${I386_PADDLE_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy -I binary -O elf32-i386 -B i386
-        --rename-section .data=.sound_paddle,alloc,load,readonly,contents
-        ${AUDIO_PONG_PADDLE_RAW} ${I386_PADDLE_OBJ}
-        DEPENDS ${AUDIO_PONG_PADDLE_RAW}
-        COMMENT "Embedding paddle.raw (i386)"
-    )
-    add_custom_target(i386_paddle_obj DEPENDS ${I386_PADDLE_OBJ})
-
-    set(I386_SCORE_OBJ ${CMAKE_CURRENT_BINARY_DIR}/score.o)
-    add_custom_command(
-        OUTPUT ${I386_SCORE_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy -I binary -O elf32-i386 -B i386
-        --rename-section .data=.sound_score,alloc,load,readonly,contents
-        ${AUDIO_PONG_SCORE_RAW} ${I386_SCORE_OBJ}
-        DEPENDS ${AUDIO_PONG_SCORE_RAW}
-        COMMENT "Embedding score.raw (i386)"
-    )
-    add_custom_target(i386_score_obj DEPENDS ${I386_SCORE_OBJ})
+    set(AUDIO_OBJCOPY_FORMAT elf32-i386)
+    set(AUDIO_OBJCOPY_ARCH i386)
 
     set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/${ARCHDIR}/linker.ld)
     set(USE_CRTBEGIN ON)
@@ -303,46 +224,8 @@ elseif(ARCH STREQUAL "x86_64")
         ${UACPI_SOURCES}
     )
 
-    set(X86_AUDIO_FLAGS -I binary -O elf64-x86-64 -B i386:x86-64
-        --rename-section .data=.sound_rick,alloc,load,readonly,contents
-    )
-
-    # Embed raw audio data into linkable objects
-    set(RICK_OBJ ${CMAKE_CURRENT_BINARY_DIR}/rick.o)
-    add_custom_command(
-        OUTPUT ${RICK_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy ${X86_AUDIO_FLAGS} ${AUDIO_RICK_RAW} ${RICK_OBJ}
-        DEPENDS ${AUDIO_RICK_RAW}
-        COMMENT "Embedding rick.raw"
-    )
-    add_custom_target(rick_obj DEPENDS ${RICK_OBJ})
-
-    set(WALL_OBJ ${CMAKE_CURRENT_BINARY_DIR}/wall.o)
-    add_custom_command(
-        OUTPUT ${WALL_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy ${X86_AUDIO_FLAGS} ${AUDIO_PONG_WALL_RAW} ${WALL_OBJ}
-        DEPENDS ${AUDIO_PONG_WALL_RAW}
-        COMMENT "Embedding wall.raw"
-    )
-    add_custom_target(wall_obj DEPENDS ${WALL_OBJ})
-
-    set(PADDLE_OBJ ${CMAKE_CURRENT_BINARY_DIR}/paddle.o)
-    add_custom_command(
-        OUTPUT ${PADDLE_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy ${X86_AUDIO_FLAGS} ${AUDIO_PONG_PADDLE_RAW} ${PADDLE_OBJ}
-        DEPENDS ${AUDIO_PONG_PADDLE_RAW}
-        COMMENT "Embedding paddle.raw"
-    )
-    add_custom_target(paddle_obj DEPENDS ${PADDLE_OBJ})
-
-    set(SCORE_OBJ ${CMAKE_CURRENT_BINARY_DIR}/score.o)
-    add_custom_command(
-        OUTPUT ${SCORE_OBJ}
-        COMMAND ${TOOLCHAIN_PREFIX}-objcopy ${X86_AUDIO_FLAGS} ${AUDIO_PONG_SCORE_RAW} ${SCORE_OBJ}
-        DEPENDS ${AUDIO_PONG_SCORE_RAW}
-        COMMENT "Embedding score.raw"
-    )
-    add_custom_target(score_obj DEPENDS ${SCORE_OBJ})
+    set(AUDIO_OBJCOPY_FORMAT elf64-x86-64)
+    set(AUDIO_OBJCOPY_ARCH i386:x86-64)
 
     set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/${ARCHDIR}/linker.ld)
     set(USE_CRTBEGIN OFF)
@@ -367,6 +250,17 @@ target_include_directories(horizon_flags INTERFACE ${KERNEL_INCLUDE_DIRS} ${KERN
 
 # Kernel executable
 add_executable(horizon.kernel ${KERNEL_SOURCES})
+
+# embedded audio, converted to raw PCM and linked into the sections the
+# arch linker script brackets with _audio_*_start/_end
+embed_audio(wall   SOURCE audio/wall.ogg   SECTION .sound_wall)
+embed_audio(paddle SOURCE audio/paddle.ogg SECTION .sound_paddle)
+embed_audio(score  SOURCE audio/score.ogg  SECTION .sound_score)
+
+# very impotant audio (x86_64 only, i386's linker.ld has no .sound_rick)
+if(ARCH STREQUAL "x86_64")
+    embed_audio(rick SOURCE audio/rick.mp3 SECTION .sound_rick)
+endif()
 
 subsystem(kernel
     CORE
@@ -428,15 +322,6 @@ target_link_libraries(horizon.kernel PRIVATE ${SUBSYSTEMS} ${KERNEL_LIBS})
 
 # Ensure headers and libk are ready before building kernel
 add_dependencies(horizon.kernel install-kernel-headers install-libc-headers k)
-
-# Link embedded audio data
-if(ARCH STREQUAL "x86_64")
-    add_dependencies(horizon.kernel rick_obj wall_obj paddle_obj score_obj)
-    target_link_libraries(horizon.kernel PRIVATE ${RICK_OBJ} ${WALL_OBJ} ${PADDLE_OBJ} ${SCORE_OBJ})
-elseif(ARCH STREQUAL "i386")
-    add_dependencies(horizon.kernel i386_wall_obj i386_paddle_obj i386_score_obj)
-    target_link_libraries(horizon.kernel PRIVATE ${I386_WALL_OBJ} ${I386_PADDLE_OBJ} ${I386_SCORE_OBJ})
-endif()
 
 # Set compile options
 target_compile_options(horizon.kernel PRIVATE
