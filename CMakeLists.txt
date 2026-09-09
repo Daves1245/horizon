@@ -218,7 +218,6 @@ elseif(ARCH STREQUAL "x86_64")
         ${ARCHDIR}/drivers/ps2k.c
         ${ARCHDIR}/drivers/graphics.c
         ${ARCHDIR}/panic.c
-        ${ARCHDIR}/include/log.c
         ${ARCHDIR}/include/shell.c
         ${ARCHDIR}/include/keyboard.c
         ${UACPI_SOURCES}
@@ -276,6 +275,7 @@ subsystem(kernel
     kernel/apic/apic.c
     kernel/apic/madt.c
 
+    kernel/log.c
     kernel/halt.c
     kernel/time.c
     include/kernel/console.c
