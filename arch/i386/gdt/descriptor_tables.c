@@ -93,6 +93,11 @@ void idt_flush(u32int);
 #define IDT_MAX_DESCRIPTORS 256
 
 static int vectors[IDT_MAX_DESCRIPTORS];
+
+// how many entries interrupt.asm's isr_stub_table actually has: the 32
+// exceptions plus the 16 IRQ vectors.
+#define NUM_ISR_STUBS 48
+
 extern void *isr_stub_table[];
 
 // Remap the PIC to use IRQs 32-47 instead of 8-23
@@ -127,14 +132,8 @@ static void init_idt() {
 	idtr.base = (uintptr_t)&idt[0];
 	idtr.limit = sizeof(struct idt_entry) * IDT_MAX_DESCRIPTORS - 1;
 
-	// Set up exception handlers (0-31)
-	for (uint8_t vector = 0; vector < 32; vector++) {
-		idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
-		vectors[vector] = 1;
-	}
-
-	// set up irq handlers (32-34 for now, just for keyboard driver)
-	for (uint8_t vector = 32; vector <= 34; vector++) {
+	// exception handlers (0-31) and the IRQ range (32-47) in one pass
+	for (uint8_t vector = 0; vector < NUM_ISR_STUBS; vector++) {
 		idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
 		vectors[vector] = 1;
 	}

@@ -1,3 +1,5 @@
+// TODO: this can be done in C with gcc extensions. this will probably
+// be cleaner, although assembly for now is fine.
 %macro isr_err_stub 1
 global isr%+%1
 isr%+%1:
@@ -113,14 +115,29 @@ isr_no_err_stub 28
 isr_no_err_stub 29
 isr_err_stub    30
 isr_no_err_stub 31
+; IRQ stubs (vectors 32-47, no error code).
 isr_no_err_stub 32 ; IRQ 0 timer
 isr_no_err_stub 33 ; IRQ 1 keyboard
 isr_no_err_stub 34 ; IRQ 2 cascade
+isr_no_err_stub 35
+isr_no_err_stub 36
+isr_no_err_stub 37
+isr_no_err_stub 38
+isr_no_err_stub 39
+isr_no_err_stub 40
+isr_no_err_stub 41
+isr_no_err_stub 42
+isr_no_err_stub 43 ; IRQ 11, where qemu lands ac97
+isr_no_err_stub 44
+isr_no_err_stub 45
+isr_no_err_stub 46
+isr_no_err_stub 47
 
 global isr_stub_table
 isr_stub_table:
 %assign i 0
-%rep    34
+// same as number of stubs above
+%rep    48
     dd isr%+i
 %assign i i+1
 %endrep

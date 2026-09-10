@@ -32,6 +32,7 @@ if [ "$USE_CDROM" = "1" ]; then
     if [ "$1" = "debug" ]; then
         $QEMU_BIN -cdrom $ISO_FILE \
             -vga std \
+            $AUDIODEV $AC97 \
             -monitor stdio \
             -d int,cpu_reset,guest_errors \
             -D debug.log \
@@ -40,11 +41,13 @@ if [ "$USE_CDROM" = "1" ]; then
     elif [ "$1" = "serial" ]; then
         $QEMU_BIN -cdrom $ISO_FILE \
             -nographic \
+            $AUDIODEV $AC97 \
             -serial mon:stdio \
             -no-shutdown
     else
         $QEMU_BIN -cdrom $ISO_FILE \
             -vga std \
+            $AUDIODEV $AC97 \
             -serial stdio
     fi
 else
