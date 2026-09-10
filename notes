@@ -543,3 +543,30 @@ There are three scopes:
 	INTERFACE: Not linked to A, but passed to targets consuming A
 
 
+function(function_name [arguments])
+- declares a function named function_name, with declared named arguments in the list. any
+additionally passed arguments are implicit and part of the ARGN list
+
+note to self: atomic commits are helpful for debugging with git bisect, but breaking
+updates defeats the purpose since it breaks the assumption of a continuous search space.
+to save face on debugging, we have to prioritize not making breaking changes when working
+in one architecture over the other. this is more important than adding in new features.
+
+how should asm/ be laid out?
+process.c currently has arch-specific irqflags inline functions and assembly (swtch.S is
+arch specific, as well). so, we move these into asm/{irqflags,swtch.S}), but should
+the respective asm just be #ifdef's on arch/ paths?
+
+# Bad Apple:
+
+- notes on mp4: made up of boxes, which in turn keep metadata,
+run-length encoding, pure frames as various different types of encoding.
+
+technically, mp4 is a container only, so it doesn't specify *how* the
+video gets encoded, just the encoding itself. there are various
+ways to encode it as well, mp4 is a flexible blueprint
+
+simplest version might be double track, h.264 video and an audio track,
+progressive.
+
+

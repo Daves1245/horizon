@@ -98,31 +98,38 @@ void init_paging() {
 	memset(kernel_directory, 0, 1024 * sizeof(page_directory_t));
 	current_directory = kernel_directory;
 
+	// not read_cr3(): paging is not on yet, so the live cr3 is whatever the
+	// bootloader left behind. every walk below targets the directory we are
+	// building here, which is what switch_page_directory() loads at the end.
+	uint32_t cr3 = (uint32_t)kernel_directory;
+
 	/* identity map the kernel */
 	// identity map from 0x0 to the end of used memory
 	// map physical address X to virtual address X for kernel memory
 	// map extra space (8MB) for kernel heap and dynamically allocated page tables
 	uint32_t identity_map_end = placement_address + 0x800000; // 8MB extra
 	for (uint32_t i = 0; i < identity_map_end; i += 0x1000) {
-		page_table_entry_t *page = get_page(i, 1, kernel_directory);
+		page_table_entry_t *page = get_page(i, 1, cr3);
 		alloc_frame(page, 1, 1); // kernel=1, writeable=1
 	}
 
 	// map bios memory regions for acpi tables
-	map_physical_range(0x80000, 0x80000, 1, 1); // 512kb area around ebda
+	map_physical_range(0x80000, 0x80000, 1, 1,
+			   cr3); // 512kb area around ebda
 
 	// map extended bios area for ACPI tables (can be anywhere in low memory)
-	map_physical_range(0x7fe0000, 0x20000, 1,
-			   1); // Map 128KB around typical RSDT location
+	map_physical_range(0x7fe0000, 0x20000, 1, 1,
+			   cr3); // Map 128KB around typical RSDT location
 
 	// map bios rom area
-	map_physical_range(0xE0000, 0x20000, 1, 1); // 128kb bios rom area
+	map_physical_range(0xE0000, 0x20000, 1, 1,
+			   cr3); // 128kb bios rom area
 
 	// pre-map APIC and IOAPIC regions to avoid page faults later
 	// these are default locations, not standardized, but we
 	// do this just to be safe and use the MADT-found values later
-	map_physical_range(0xFEC00000, 0x1000, 1, 1); // IOAPIC
-	map_physical_range(0xFEE00000, 0x1000, 1, 1); // local APIC
+	map_physical_range(0xFEC00000, 0x1000, 1, 1, cr3); // IOAPIC
+	map_physical_range(0xFEE00000, 0x1000, 1, 1, cr3); // local APIC
 
 	// register the page fault handler
 	register_interrupt_handler(14, page_fault);
@@ -143,7 +150,9 @@ void switch_page_directory(page_directory_t *dir) {
 	asm volatile("movl %0, %%cr0" : : "r"(cr0));
 }
 
-page_table_entry_t *get_page(uint32_t addr, int make, page_directory_t *dir) {
+page_table_entry_t *get_page(uint32_t addr, int make, uint32_t cr3) {
+	page_directory_t *dir = cr3_to_directory(cr3);
+
 	// extract page directory index (bits 31-22)
 	uint32_t page_dir_index = addr >> 22;
 
@@ -215,7 +224,7 @@ void page_fault(struct interrupt_context *regs) {
 }
 
 void map_physical_range(uint32_t phys_start, uint32_t length, int iskernel,
-			int writeable) {
+			int writeable, uint32_t cr3) {
 	// Align start address to page boundary
 	uint32_t start = phys_start & 0xFFFFF000;
 	// Align end address to page boundary (round up)
@@ -224,6 +233,10 @@ void map_physical_range(uint32_t phys_start, uint32_t length, int iskernel,
 	printf("mapping physical range 0x%x to 0x%x (length: %d bytes)\n",
 	       start, end, end - start);
 
+	// the PDE we relax below has to be the one get_page() then walks, so
+	// take both from cr3 rather than reaching for kernel_directory here
+	page_directory_t *dir = cr3_to_directory(cr3);
+
 	// identity map each page in the range
 	for (uint32_t addr = start; addr < end; addr += 0x1000) {
 		// get page directory index
@@ -231,10 +244,10 @@ void map_physical_range(uint32_t phys_start, uint32_t length, int iskernel,
 
 		// ensure PDE has write permission (both PDE and PTE must be writable)
 		if (writeable) {
-			kernel_directory[page_dir_index] |= PDE_READ_WRITE;
+			dir[page_dir_index] |= PDE_READ_WRITE;
 		}
 
-		page_table_entry_t *page = get_page(addr, 1, kernel_directory);
+		page_table_entry_t *page = get_page(addr, 1, cr3);
 		if (page) {
 			// map virtual address to same physical address (identity mapping)
 			uint32_t frame = addr / 0x1000;
@@ -263,13 +276,13 @@ void map_physical_range(uint32_t phys_start, uint32_t length, int iskernel,
 /* Virtual Memory API */
 
 void map_page(uint32_t virt_addr, uint32_t phys_addr, int iskernel,
-	      int writeable) {
+	      int writeable, uint32_t cr3) {
 	// align to page boundaries
 	virt_addr &= 0xFFFFF000;
 	phys_addr &= 0xFFFFF000;
 
 	// get or create page table entry
-	page_table_entry_t *page = get_page(virt_addr, 1, current_directory);
+	page_table_entry_t *page = get_page(virt_addr, 1, cr3);
 	if (!page) {
 		printf("[paging]: Failed to get page for 0x%x\n", virt_addr);
 		return;
@@ -297,10 +310,10 @@ void map_page(uint32_t virt_addr, uint32_t phys_addr, int iskernel,
 	invalidate_page(virt_addr);
 }
 
-void unmap_page(uint32_t virt_addr) {
+void unmap_page(uint32_t virt_addr, uint32_t cr3) {
 	virt_addr &= 0xFFFFF000;
 
-	page_table_entry_t *page = get_page(virt_addr, 0, current_directory);
+	page_table_entry_t *page = get_page(virt_addr, 0, cr3);
 	if (!page || !PTE_IS_PRESENT(*page)) {
 		return; // already unmapped!
 	}
@@ -313,7 +326,7 @@ void unmap_page(uint32_t virt_addr) {
 }
 
 // is it?
-int is_page_mapped(uint32_t virt_addr) {
-	page_table_entry_t *page = get_page(virt_addr, 0, current_directory);
+int is_page_mapped(uint32_t virt_addr, uint32_t cr3) {
+	page_table_entry_t *page = get_page(virt_addr, 0, cr3);
 	return (page != 0 && PTE_IS_PRESENT(*page));
 }

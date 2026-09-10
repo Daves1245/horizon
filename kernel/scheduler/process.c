@@ -6,6 +6,8 @@
 #include <kernel/panic.h>
 #include <serial.h>
 #include <time.h>
+#include <asm/irqflags.h>
+#include <asm/switch.h>
 
 #include <halt.h>
 
@@ -21,36 +23,6 @@ void exit_process(void);
 // dummy location to dump this execution environment's
 // %rsp when we bootstrap ourselves into the init() process
 static struct process bootstrap_proc;
-
-// TODO move to cpu.c later maybe for organization?
-static inline uint64_t read_rflags(void) {
-	uint64_t flags;
-	// flags register isn't addressable, so we push and
-	// pop the flag register and store the result into `flags`
-	asm volatile("pushfq; popq %0" : "=r"(flags));
-	return flags;
-}
-
-// the 'memory' clobber tells the compiler to flush reads and writes by
-// declaring this instruction as possibly reading or writing arbitrary
-// memory. this isn't cpu-bound, bound all temporary registers used
-// by the *compiler* are flushed, guaranteeing that at this point in the
-// generated binary, we have done all necessary writes
-// TODO feels like this should always be the case for cli/sti, at least
-// in the use case of guarding critical sections. worth noting for custom
-// language
-uint64_t irq_save(void) {
-	uint64_t flags = read_rflags() & FL_IF;
-
-	asm volatile("cli" ::: "memory");
-	return flags;
-}
-
-void irq_restore(uint64_t flags) {
-	if (flags & FL_IF) {
-		asm volatile("sti" ::: "memory");
-	}
-}
 
 // build the kernel stack (and matching context saved). brand new
 // processes needs to survive its first swtch() into it. swtch()
@@ -111,7 +83,7 @@ static struct vm_region *init_stack(struct process *p, void (*entry)(void)) {
 	vma_stack->start = stack;
 	vma_stack->end = (virt_addr_t)stack_p;
 
-	p->context.rsp = (virt_addr_t)&stack_p[-8]; // r15
+	p->context.sp = (virt_addr_t)&stack_p[-8]; // r15
 
 	// guard page (stack grows down, so we have to guard the first page)
 	phys_addr_t guard_frame = unmap_page(vma_stack->start, read_cr3());

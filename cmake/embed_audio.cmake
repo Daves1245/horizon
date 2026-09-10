@@ -17,6 +17,10 @@ function(embed_audio name)
         message(FATAL_ERROR "embed_audio ${name}: no objcopy output format for ARCH=${ARCH}")
     endif()
 
+    if(NOT FFMPEG_BINARY)
+        message(FATAL_ERROR "embed_audio ${name}: FFMPEG_BINARY is unset")
+    endif()
+
     if(NOT TARGET horizon.kernel)
         message(FATAL_ERROR "embed_audio ${name}: horizon.kernel not defined yet")
     endif()

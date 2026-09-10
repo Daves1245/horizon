@@ -90,6 +90,18 @@ if(NOT NASM_BINARY)
 endif()
 set(CMAKE_ASM_NASM_COMPILER ${NASM_BINARY})
 
+# Check for ffmpeg (embed_audio() decodes the sources to raw PCM with it)
+find_program(FFMPEG_BINARY ffmpeg)
+if(NOT FFMPEG_BINARY)
+    if(WIN32)
+        message(FATAL_ERROR "ffmpeg not found. try: pacman -S ffmpeg, or download from ffmpeg.org")
+    elseif(APPLE)
+        message(FATAL_ERROR "ffmpeg not found. try: brew install ffmpeg")
+    else()
+        message(FATAL_ERROR "ffmpeg not found. try: sudo apt install ffmpeg  (or equivalent)")
+    endif()
+endif()
+
 project(Horizon C ASM ASM_NASM)
 
 # include subsystem cmakes (./cmake/subsystem.cmake)
@@ -172,10 +184,13 @@ if(ARCH STREQUAL "i386")
         ${ARCHDIR}/interrupts/interrupt.asm
         ${ARCHDIR}/interrupts/isr.c
         ${ARCHDIR}/common/stack_protector.c
+        ${ARCHDIR}/irqflags.c
         ${ARCHDIR}/common/ctype.c
         ${ARCHDIR}/common/rand.c
         ${ARCHDIR}/memory/paging.c
         ${ARCHDIR}/apic/apic_asm.asm
+        ${ARCHDIR}/switch.c
+        ${ARCHDIR}/asm/swtch.S
         libc/string/string.c
         ${ARCHDIR}/drivers/shell/hush.c
         ${ARCHDIR}/drivers/shell/builtins/maze.c
@@ -207,11 +222,14 @@ elseif(ARCH STREQUAL "x86_64")
         ${ARCHDIR}/interrupts/gdt.S
         ${ARCHDIR}/interrupts/isr.c
         ${ARCHDIR}/interrupts/stack_protector.c
+        ${ARCHDIR}/irqflags.c
         ${ARCHDIR}/interrupts/common.c
         ${ARCHDIR}/interrupts/apic.c
         ${ARCHDIR}/memory/paging.c
         ${ARCHDIR}/asm/interrupt.S
         ${ARCHDIR}/asm/apic_asm.S
+        ${ARCHDIR}/switch.c
+        ${ARCHDIR}/asm/swtch.S
         ${ARCHDIR}/uacpi/kernel_api.c
         ${ARCHDIR}/uacpi/uacpi_init.c
         ${ARCHDIR}/acpi/acpi_bus.c
@@ -266,7 +284,6 @@ subsystem(kernel
     kernel/scheduler/lock.c
     kernel/scheduler/process.c
     kernel/scheduler/scheduler.c
-    kernel/scheduler/swtch.S
 
     kernel/fonts/fontlibrary.c
     kernel/fonts/font.c
@@ -515,7 +532,6 @@ add_custom_target(clean-all
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${SYSROOT}
     COMMAND ${CMAKE_COMMAND} -E rm -rf ${CMAKE_BINARY_DIR}/isodir
     COMMAND ${CMAKE_COMMAND} -E rm -f
-    ${CMAKE_BINARY_DIR}/horizon.iso
     ${CMAKE_BINARY_DIR}/horizon.iso
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target clean
     COMMENT "cleaning"

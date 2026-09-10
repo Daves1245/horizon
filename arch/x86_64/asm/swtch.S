@@ -1,4 +1,4 @@
-# swtch(virt_addr_t *old->rsp, virt_addr_t new->rsp, virt_addr_t new->cr3)
+# swtch(virt_addr_t *old->sp, virt_addr_t new->sp, phys_addr_t new->cr3)
 # arguments in asm are rdi, rsi, rdx, ...
 .global swtch
 swtch:

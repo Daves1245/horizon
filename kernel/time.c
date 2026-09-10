@@ -6,10 +6,8 @@
 #include <kernel/tty.h>
 #include <time.h>
 
-#ifdef __x86_64__
 #include <kernel/scheduler/process.h>
 #include <kernel/scheduler/scheduler.h>
-#endif
 
 #define TIMER_HZ 1000
 
@@ -31,7 +29,6 @@ void timer_interrupt_handler(struct interrupt_context *regs) {
 	apic_send_eoi();
 }
 
-#ifdef __x86_64__
 void timer_interrupt_handler_sched(struct interrupt_context *regs) {
 	tick_count++;
 	apic_send_eoi();
@@ -40,7 +37,6 @@ void timer_interrupt_handler_sched(struct interrupt_context *regs) {
 	}
 	ctx_switch(mycpu()->scheduler_proc);
 }
-#endif
 
 void init_timer(void) {
 	log_debug("[timer]: registering timer handler for vector 32\n");

@@ -3,12 +3,7 @@
 #include <kernel/tty.h>
 #include <halt.h>
 #include "test_vm.h"
-
-// Forward declarations from paging.h
-void map_page(uint32_t virt_addr, uint32_t phys_addr, int iskernel,
-	      int writeable);
-void unmap_page(uint32_t virt_addr);
-int is_page_mapped(uint32_t virt_addr);
+#include "memory/paging.h"
 
 void test_vm(void) {
 #ifdef DEBUG
@@ -19,7 +14,7 @@ void test_vm(void) {
 	uint32_t test_virt = 0xA0000000;
 	uint32_t test_phys = 0x500000; // 5MB physical
 
-	map_page(test_virt, test_phys, 1, 1);
+	map_page(test_virt, test_phys, 1, 1, read_cr3());
 
 	// Write to virtual address
 	*(volatile uint32_t *)test_virt = 0xDEADBEEF;
@@ -38,10 +33,10 @@ void test_vm(void) {
 	}
 
 	// Test 2: Remapping same virtual address
-	unmap_page(test_virt);
+	unmap_page(test_virt, read_cr3());
 
 	uint32_t test_phys2 = 0x600000; // Different physical address
-	map_page(test_virt, test_phys2, 1, 1);
+	map_page(test_virt, test_phys2, 1, 1, read_cr3());
 
 	*(volatile uint32_t *)test_virt = 0xCAFEBABE;
 	uint32_t phys2_value = *(volatile uint32_t *)test_phys2;
@@ -56,7 +51,8 @@ void test_vm(void) {
 	}
 
 	// Test 3: is_page_mapped check
-	if (is_page_mapped(test_virt) && !is_page_mapped(0xC0000000)) {
+	if (is_page_mapped(test_virt, read_cr3()) &&
+	    !is_page_mapped(0xC0000000, read_cr3())) {
 #ifdef DEBUG
 		log_success("[vm_test]: Test 3 PASSED\n");
 #endif

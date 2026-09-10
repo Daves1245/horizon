@@ -4,7 +4,7 @@
 #include <kernel/tty.h>
 #include <kernel/logger.h>
 #include <string.h>
-#include <drivers/console.h>
+#include <kernel/console.h>
 #include <drivers/keyboard/keyboard.h>
 
 #include <jury/test_paging.h>

@@ -8,7 +8,7 @@
 #include <io.h>
 #ifdef __i386__
 #include <string.h>
-#include <drivers/console.h>
+#include <kernel/console.h>
 #include <kernel/panic.h>
 #include <time.h>
 #endif

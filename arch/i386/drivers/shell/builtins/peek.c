@@ -1,4 +1,4 @@
-#include <drivers/console.h>
+#include <kernel/console.h>
 #include <kernel/types.h>
 #include <stddef.h>
 #include <stdint.h>

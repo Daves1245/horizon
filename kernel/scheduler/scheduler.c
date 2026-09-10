@@ -2,10 +2,8 @@
 #include <kernel/scheduler/process.h>
 #include <kernel/scheduler/lock.h>
 #include <kernel/panic.h>
-
-// old_rsp points to where we should get the last stack
-// pointer, so it itself should be a pointer
-extern void swtch(uint64_t *old_rsp, uint64_t new_rsp, uint64_t new_cr3);
+#include <asm/irqflags.h>
+#include <asm/switch.h>
 
 // Multilevel feedback queue
 struct list_head mlfq[NUM_PRIORITY_LEVELS];
@@ -17,9 +15,7 @@ lock_t mlfq_lock;
 /* prepare data structures (mlfq and ready list) */
 void init_scheduler(void) {
 	// these live in .bss, so their next/prev come up NULL rather than
-	// pointing at themselves. an uninitialized head reads as *non*-empty,
-	// which walks the scheduler straight into a NULL deref -- so this has to
-	// run before anything is queued.
+	// pointing at themselves
 	INIT_LIST_HEAD(&ready);
 
 	for (int i = 0; i < NUM_PRIORITY_LEVELS; i++) {
@@ -56,27 +52,6 @@ static int demote(int level) {
 	}
 
 	return level;
-}
-
-// TODO(usermode)
-// when we switch to a higher privilege level, we have
-// to separate out stacks becuase contents of a less
-// privileged stack cannot be trusted. TSS i think
-// is how this implemented for x86_64? i know x86
-// supported full hardware context switches with it,
-// but it's less used in x86_64.
-void ctx_switch(struct process *new) {
-	// TODO(multicore)
-
-	uint64_t flags = irq_save();
-
-	struct process *old = myproc();
-
-	cpus[0].task = new;
-
-	swtch(&old->context.rsp, new->context.rsp, new->cr3);
-
-	irq_restore(flags);
 }
 
 // we make the scheduler its own process with special properties

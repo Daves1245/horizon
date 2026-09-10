@@ -24,7 +24,7 @@ void graphics_init(struct multiboot_info *mbi) {
 	uint32_t size = mbi->framebuffer_pitch * mbi->framebuffer_height;
 
 	/* identity-map the framebuffer physical pages before touching them */
-	map_physical_range(phys, size, 1, 1);
+	map_physical_range(phys, size, 1, 1, read_cr3());
 
 	gfx_framebuffer_t fb = {
 		.address = (uint32_t *)phys,
